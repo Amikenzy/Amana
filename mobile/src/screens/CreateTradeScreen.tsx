@@ -189,6 +189,10 @@ function Step2Negotiation({
   onBack: () => void;
   onNext: () => void;
 }) {
+  // The delivery window is submitted with the trade, so an empty or
+  // non-positive value must not reach the review step.
+  const deliveryDaysValid = /^\d+$/.test(data.deliveryDays.trim()) && Number(data.deliveryDays) > 0;
+
   return (
     <View style={stepStyles.container}>
       <Text style={styles.sectionTitle}>Step 2: Negotiation</Text>
@@ -243,7 +247,11 @@ function Step2Negotiation({
         <TouchableOpacity style={stepStyles.btnSecondary} onPress={onBack}>
           <Text style={stepStyles.btnSecondaryText}>Back</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={stepStyles.btn} onPress={onNext}>
+        <TouchableOpacity
+          style={[stepStyles.btn, !deliveryDaysValid && stepStyles.btnDisabled]}
+          onPress={onNext}
+          disabled={!deliveryDaysValid}
+        >
           <Text style={stepStyles.btnText}>Review</Text>
         </TouchableOpacity>
       </View>
@@ -341,6 +349,8 @@ export default function CreateTradeScreen({ navigation }: Props) {
       commodity: data.commodity,
       quantity: data.quantity,
       unit: data.unit,
+      // The review step shows this value, so it has to reach the API as well.
+      deliveryDays: Number(data.deliveryDays),
     };
   };
 
