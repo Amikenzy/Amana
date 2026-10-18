@@ -71,18 +71,50 @@ describe("Rollback script presence", () => {
     }
   });
 
-  it.each(dirs)("%s — non-destructive migration does not require rollback.sql", (dir) => {
-    const sqlPath = path.join(dir, "migration.sql");
-    if (!fs.existsSync(sqlPath)) return;
+  // Only non-destructive migrations may ship without a rollback.sql, so every
+  // migration that has none must classify as non-destructive. Unlike the
+  // previous version, the assertion runs unconditionally for each of them.
+  const withoutRollback = dirs.filter(
+    (dir) =>
+      fs.existsSync(path.join(dir, "migration.sql")) &&
+      !fs.existsSync(path.join(dir, "rollback.sql"))
+  );
 
-    const sql = fs.readFileSync(sqlPath, "utf8");
-    const { found } = hasDestructiveDDL(sql);
-
-    if (!found) {
-      // Non-destructive migrations are allowed to have a rollback.sql (belt-and-suspenders)
-      // but it is not required — this test simply confirms the classification is consistent.
-      expect(found).toBe(false);
+  it.each(withoutRollback)(
+    "%s — migration without rollback.sql is non-destructive",
+    (dir) => {
+      const sql = fs.readFileSync(path.join(dir, "migration.sql"), "utf8");
+      expect(hasDestructiveDDL(sql).labels).toEqual([]);
     }
+  );
+});
+
+describe("Destructive DDL classifier", () => {
+  // Non-destructive statements must never be flagged; otherwise safe
+  // migrations would wrongly be required to ship a rollback.sql.
+  it.each([
+    'CREATE TABLE "Foo" (id SERIAL PRIMARY KEY);',
+    'CREATE TABLE IF NOT EXISTS "Foo" (id SERIAL PRIMARY KEY);',
+    'ALTER TABLE "Foo" ADD COLUMN "bar" TEXT;',
+    'CREATE INDEX "idx_foo_bar" ON "Foo" ("bar");',
+    'DROP TABLE IF EXISTS "OldFoo";',
+    'ALTER TABLE "Foo" DROP COLUMN IF EXISTS "bar";',
+  ])("does not flag non-destructive statement: %s", (sql) => {
+    expect(hasDestructiveDDL(sql)).toEqual({ found: false, labels: [] });
+  });
+
+  // Each destructive statement must be flagged with the right label;
+  // otherwise destructive migrations could ship without a rollback.sql.
+  it.each([
+    ['DROP TABLE "Foo";', "DROP TABLE (no IF EXISTS)"],
+    ['ALTER TABLE "Foo" DROP COLUMN "bar";', "DROP COLUMN (no IF EXISTS)"],
+    ["DROP SCHEMA legacy CASCADE;", "DROP SCHEMA"],
+    ["DROP DATABASE amana;", "DROP DATABASE"],
+    ['TRUNCATE "Trade";', "TRUNCATE"],
+  ])("flags destructive statement: %s", (sql, label) => {
+    const result = hasDestructiveDDL(sql);
+    expect(result.found).toBe(true);
+    expect(result.labels).toContain(label);
   });
 });
 
