@@ -10,6 +10,7 @@ import {
   TextInput,
   Modal,
 } from 'react-native';
+import QRCode from 'react-native-qrcode-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { StackScreenProps } from '@react-navigation/stack';
 import type { RootStackParamList } from '../types/navigation';
@@ -105,12 +106,23 @@ function TradeTimeline({ trade }: { trade: Trade }) {
 export default function TradeDetailScreen({ route, navigation }: Props) {
   const tradeId = route.params.tradeId;
   const insets = useSafeAreaInsets();
-  const { currentTrade, isLoading, error, fetchTrade, confirmDelivery, initiateDispute, releaseFunds, deposit, clearError } =
-    useTradeStore();
+  const {
+    currentTrade,
+    isLoading,
+    error,
+    lastTransactionSubmission,
+    fetchTrade,
+    confirmDelivery,
+    initiateDispute,
+    releaseFunds,
+    deposit,
+    clearError,
+  } = useTradeStore();
 
   const [disputeModalVisible, setDisputeModalVisible] = useState(false);
   const [disputeReason, setDisputeReason] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
+  const [pairingUri, setPairingUri] = useState<string | null>(null);
 
   useEffect(() => {
     fetchTrade(tradeId);
@@ -127,8 +139,12 @@ export default function TradeDetailScreen({ route, navigation }: Props) {
           style: 'default',
           onPress: async () => {
             setActionLoading(true);
-            await deposit(tradeId);
-            setActionLoading(false);
+            try {
+              await deposit(tradeId, setPairingUri);
+            } finally {
+              setPairingUri(null);
+              setActionLoading(false);
+            }
           },
         },
       ]
@@ -165,8 +181,12 @@ export default function TradeDetailScreen({ route, navigation }: Props) {
           style: 'destructive',
           onPress: async () => {
             setActionLoading(true);
-            await releaseFunds(tradeId);
-            setActionLoading(false);
+            try {
+              await releaseFunds(tradeId, setPairingUri);
+            } finally {
+              setPairingUri(null);
+              setActionLoading(false);
+            }
           },
         },
       ]
@@ -218,6 +238,23 @@ export default function TradeDetailScreen({ route, navigation }: Props) {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
+      <Modal
+        visible={pairingUri !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => undefined}
+      >
+        <View style={styles.pairingOverlay}>
+          <View style={styles.pairingCard}>
+            <Text style={styles.sectionTitle}>Connect Stellar Wallet</Text>
+            <Text style={styles.pairingText}>
+              Scan this WalletConnect QR code with a Stellar wallet to review and sign the transaction.
+            </Text>
+            {pairingUri && <QRCode value={pairingUri} size={220} />}
+          </View>
+        </View>
+      </Modal>
+
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
@@ -245,6 +282,14 @@ export default function TradeDetailScreen({ route, navigation }: Props) {
           <TouchableOpacity style={styles.errorBanner} onPress={clearError}>
             <Text style={styles.errorBannerText}>{error} — tap to dismiss</Text>
           </TouchableOpacity>
+        )}
+        {lastTransactionSubmission && (
+          <View style={styles.submissionBanner}>
+            <Text style={styles.submissionText}>
+              Transaction submitted to Stellar ({lastTransactionSubmission.status}).
+            </Text>
+            <Text style={styles.submissionHash}>{lastTransactionSubmission.hash}</Text>
+          </View>
         )}
 
         {/* Trade info */}
@@ -422,6 +467,14 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   errorBannerText: { color: '#DC2626', fontSize: 13 },
+  submissionBanner: {
+    backgroundColor: '#DCFCE7',
+    padding: 12,
+    borderRadius: 8,
+    gap: 6,
+  },
+  submissionText: { color: '#166534', fontSize: 13, fontWeight: '600' },
+  submissionHash: { color: '#166534', fontFamily: 'monospace', fontSize: 10 },
   errorText: { fontSize: 16, color: '#DC2626', marginBottom: 16 },
   backBtn: { padding: 12 },
   backBtnText: { color: '#2d6a2d', fontSize: 15 },
@@ -503,4 +556,20 @@ const styles = StyleSheet.create({
   cancelBtnText: { color: '#555', fontSize: 15, fontWeight: '600' },
   submitBtn: { backgroundColor: '#DC2626' },
   submitBtnText: { color: '#fff', fontSize: 15, fontWeight: '600' },
+  pairingOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  pairingCard: {
+    width: '100%',
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 24,
+    alignItems: 'center',
+    gap: 16,
+  },
+  pairingText: { color: '#555', textAlign: 'center', lineHeight: 22 },
 });

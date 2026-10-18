@@ -52,7 +52,7 @@ export type TradeListFilters = {
   sort?: string;
 };
 
-type TradeDatabase = Pick<PrismaClient, "trade" | "dispute" | "disputeCategory"> &
+type TradeDatabase = Pick<PrismaClient, "trade" | "dispute" | "disputeCategory" | "$queryRaw"> &
   Partial<Pick<PrismaClient, "$transaction" | "userWatchlist">>;
 
 export class TradeAccessDeniedError extends Error {

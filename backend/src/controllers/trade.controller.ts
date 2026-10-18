@@ -13,6 +13,9 @@ import {
   DisputeTradeStatusError,
   DisputeCategoryValidationError,
 } from "../services/trade.service";
+import { StellarService } from "../services/stellar.service";
+import { networkPassphrase } from "../config/stellar";
+import { env } from "../config/env";
 import { AppError, ErrorCode } from "../errors/errorCodes";
 import { getMediatorAllowlist } from "../lib/accessControl";
 import { logErrorWithContext, logBusinessEvent } from "../lib/logging";
@@ -52,6 +55,7 @@ export class TradeController {
   constructor(
     private readonly tradeService: TradeService = new TradeService(),
     private readonly contractService: ContractService = new ContractService(),
+    private readonly stellarService: StellarService = new StellarService(),
   ) {}
 
   public createTrade = async (
@@ -193,6 +197,98 @@ export class TradeController {
     }
   };
 
+  public submitSignedTransaction = async (
+    req: AuthRequest,
+    res: Response,
+    next: NextFunction,
+  ): Promise<Response | void> => {
+    const tradeId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+    const caller = req.user?.walletAddress?.trim();
+    try {
+      if (!tradeId) {
+        throw new AppError(ErrorCode.VALIDATION_ERROR, "Trade id is required", 400);
+      }
+      if (!caller) {
+        throw new AppError(ErrorCode.AUTH_ERROR, "Unauthorized", 401);
+      }
+
+      const trade = await this.tradeService.getTradeById(tradeId, caller);
+      if (!trade) {
+        throw new AppError(ErrorCode.TRADE_NOT_FOUND, "Trade not found", 404);
+      }
+
+      const signedXdr = (req.body as { signedXdr: string }).signedXdr;
+      let transaction: StellarSdk.Transaction | StellarSdk.FeeBumpTransaction;
+      try {
+        transaction = StellarSdk.TransactionBuilder.fromXDR(signedXdr, networkPassphrase);
+      } catch {
+        throw new AppError(ErrorCode.VALIDATION_ERROR, "Invalid signed Stellar transaction", 400);
+      }
+
+      if (
+        !(transaction instanceof StellarSdk.Transaction) ||
+        transaction.source !== caller ||
+        transaction.signatures.length === 0 ||
+        transaction.operations.length !== 1 ||
+        transaction.operations[0]?.type !== "invokeHostFunction"
+      ) {
+        throw new AppError(
+          ErrorCode.TRADE_ACCESS_DENIED,
+          "Signed transaction must be a Soroban invocation from the authenticated wallet",
+          403,
+        );
+      }
+
+      const invocation = transaction.operations[0].func.invokeContract();
+      const invocationArgs = invocation.args();
+      const targetContract = StellarSdk.Address.fromScAddress(
+        invocation.contractAddress(),
+      ).toString();
+      const functionName = invocation.functionName().toString();
+      const tradeIdArgument = invocationArgs[0];
+      const isDeposit = functionName === "deposit";
+      const isRelease = functionName === "release_funds";
+      if (
+        (!isDeposit && !isRelease) ||
+        invocationArgs.length !== (isDeposit ? 1 : 2) ||
+        !tradeIdArgument
+      ) {
+        throw new AppError(
+          ErrorCode.VALIDATION_ERROR,
+          "Signed trade transaction has invalid arguments",
+          400,
+        );
+      }
+      const invocationTradeId = StellarSdk.scValToNative(tradeIdArgument);
+      const releaseAddressArgument = invocationArgs[1];
+      const releaseAddress = releaseAddressArgument
+        ? StellarSdk.Address.fromScVal(releaseAddressArgument).toString()
+        : null;
+      if (
+        targetContract !== env.AMANA_ESCROW_CONTRACT_ID ||
+        String(invocationTradeId) !== trade.tradeId ||
+        (isDeposit && !isBuyer(trade.buyerAddress, caller)) ||
+        (isRelease &&
+          (!isBuyerOrAdmin(trade.buyerAddress, caller) || releaseAddress !== caller))
+      ) {
+        throw new AppError(
+          ErrorCode.TRADE_ACCESS_DENIED,
+          "Signed transaction does not match an authorized action for this trade",
+          403,
+        );
+      }
+
+      const submission = await this.stellarService.submitTransaction(signedXdr);
+      return res.status(202).json({ hash: submission.hash, status: submission.status });
+    } catch (error) {
+      if (error instanceof AppError) return next(error);
+      if (error instanceof TradeAccessDeniedError) {
+        return next(new AppError(ErrorCode.TRADE_ACCESS_DENIED, "Forbidden", 403));
+      }
+      return next(error);
+    }
+  };
+
   public confirmDelivery = async (
     req: AuthRequest,
     res: Response,
@@ -230,11 +326,6 @@ export class TradeController {
       }
 
       const unsignedXdr = await buildConfirmDeliveryTx(trade, caller);
-      tradeStatusEvents.publish({
-        trade_id: trade.tradeId,
-        status: TradeStatus.DELIVERED,
-        event_type: "delivery_confirmed",
-      });
       res.status(200).json({ unsignedXdr });
     } catch (error) {
       if (error instanceof AppError) {
@@ -289,11 +380,6 @@ export class TradeController {
       }
 
       const unsignedXdr = await buildReleaseFundsTx(trade, caller);
-      tradeStatusEvents.publish({
-        trade_id: trade.tradeId,
-        status: TradeStatus.COMPLETED,
-        event_type: "funds_released",
-      });
       res.status(200).json({ unsignedXdr });
     } catch (error) {
       if (error instanceof AppError) {

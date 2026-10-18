@@ -58,6 +58,10 @@ export const tradeIdParamSchema = z.object({
   id: z.string().min(1, "Trade ID is required"),
 });
 
+export const submitSignedTransactionSchema = z.object({
+  signedXdr: z.string().min(1).max(100_000),
+});
+
 export const listTradesQuerySchema = z.object({
   status: z.nativeEnum(TradeStatus).optional(),
   page: numericQueryParam("page", z.number().int().min(1).default(1)),

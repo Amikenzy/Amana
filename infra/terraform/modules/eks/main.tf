@@ -159,12 +159,6 @@ resource "aws_eks_node_group" "this" {
 
   labels = var.node_labels
 
-  taint {
-    key    = "dedicated"
-    value  = "amana"
-    effect = "NO_SCHEDULE"
-  }
-
   tags = {
     Name        = "${var.project_name}-eks-node-group"
     Environment = var.environment

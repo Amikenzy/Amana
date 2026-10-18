@@ -44,6 +44,14 @@ export const tradeApi = {
     return response.data;
   },
 
+  async submitSignedTransaction(
+    tradeId: string,
+    signedXdr: string,
+  ): Promise<{ hash: string; status: string }> {
+    const response = await apiClient.post(`/trades/${tradeId}/submit`, { signedXdr });
+    return response.data;
+  },
+
   async initiateDispute(tradeId: string, reason: string): Promise<Trade> {
     const response = await apiClient.post(`/trades/${tradeId}/dispute`, { reason });
     return response.data;
