@@ -123,4 +123,23 @@ describe('tradeStore', () => {
     useTradeStore.getState().clearError();
     expect(useTradeStore.getState().error).toBeNull();
   });
+
+  it('resetStore clears all trade state back to initial values', () => {
+    useTradeStore.setState({
+      trades: [mockTrade as any],
+      total: 1,
+      currentTrade: mockTrade as any,
+      isLoading: true,
+      error: 'some error',
+    });
+
+    useTradeStore.getState().resetStore();
+
+    const state = useTradeStore.getState();
+    expect(state.trades).toEqual([]);
+    expect(state.total).toBe(0);
+    expect(state.currentTrade).toBeNull();
+    expect(state.isLoading).toBe(false);
+    expect(state.error).toBeNull();
+  });
 });

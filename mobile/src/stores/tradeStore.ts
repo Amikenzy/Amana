@@ -25,6 +25,7 @@ interface TradeState {
   deposit: (tradeId: string) => Promise<void>;
   initiateDispute: (tradeId: string, reason: string) => Promise<void>;
   clearError: () => void;
+  resetStore: () => void;
 }
 
 export const useTradeStore = create<TradeState>((set, get) => ({
@@ -128,4 +129,13 @@ export const useTradeStore = create<TradeState>((set, get) => ({
   },
 
   clearError: () => set({ error: null }),
+
+  resetStore: () =>
+    set({
+      trades: [],
+      total: 0,
+      currentTrade: null,
+      isLoading: false,
+      error: null,
+    }),
 }));
