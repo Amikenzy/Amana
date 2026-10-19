@@ -43,6 +43,7 @@ export const tradeApi = {
     commodity?: string;
     quantity?: string;
     unit?: string;
+    deliveryDays?: number;
   }): Promise<{ tradeId: string; unsignedXdr: string }> {
     const response = await apiClient.post('/trades', data);
     return response.data;

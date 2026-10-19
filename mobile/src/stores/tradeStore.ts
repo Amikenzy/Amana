@@ -19,6 +19,7 @@ interface TradeState {
     commodity?: string;
     quantity?: string;
     unit?: string;
+    deliveryDays?: number;
   }) => Promise<{ tradeId: string; unsignedXdr: string } | null>;
   confirmDelivery: (tradeId: string) => Promise<void>;
   releaseFunds: (tradeId: string) => Promise<void>;
