@@ -8,12 +8,27 @@ import { IPFSService } from "../services/ipfs.service";
 
 const mockAxiosGet = axios.get as jest.Mock;
 
+/** In-memory `findMany` that honours Prisma cursor pagination args. */
+function paginatingFindMany(records: Array<{ id: number }>) {
+  return jest.fn(async (args: any = {}) => {
+    const sorted = [...records].sort((a, b) => Number(a.id) - Number(b.id));
+    let start = 0;
+    if (args.cursor?.id !== undefined) {
+      const idx = sorted.findIndex((r) => r.id === args.cursor.id);
+      start = idx === -1 ? sorted.length : idx + (args.skip ?? 0);
+    }
+    const take = args.take ?? sorted.length;
+    return sorted.slice(start, start + take);
+  });
+}
+
 describe("EvidenceVerificationService", () => {
   let mockPrisma: {
     tradeEvidence: {
       findMany: jest.Mock;
       count: jest.Mock;
       update: jest.Mock;
+      count: jest.Mock;
     };
   };
   let mockIpfs: jest.Mocked<Pick<IPFSService, "verifyPin" | "uploadFile" | "getFileUrl">>;
@@ -26,6 +41,7 @@ describe("EvidenceVerificationService", () => {
         findMany: jest.fn(),
         count: jest.fn(),
         update: jest.fn(),
+        count: jest.fn().mockResolvedValue(0),
       },
     };
     mockIpfs = {
@@ -61,7 +77,7 @@ describe("EvidenceVerificationService", () => {
     overrides: Partial<EvidenceTestRecord> = {},
   ): EvidenceTestRecord {
     return {
-      id: overrides.id ?? 1,
+      id: (overrides.id as number) ?? 1,
       tradeId: overrides.tradeId ?? "trade-001",
       cid: overrides.cid ?? "QmTest123",
       filename: overrides.filename ?? "evidence.jpg",
@@ -177,7 +193,7 @@ describe("EvidenceVerificationService", () => {
 
     it("should handle multiple evidence records with batch processing", async () => {
       const records = Array.from({ length: 25 }, (_, i) =>
-        makeEvidence({ id: i, cid: `QmTest${i}` }),
+        makeEvidence({ id: i + 1, cid: `QmTest${i}` }),
       );
       mockEvidencePages(records);
       mockIpfs.verifyPin.mockResolvedValue({

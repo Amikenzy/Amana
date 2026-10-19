@@ -29,6 +29,11 @@ enum DisputeStatus {
   CLOSED
 }
 
+enum DisputeOutcome {
+  WON
+  LOST
+}
+
 enum GoalStatus {
   ACTIVE
   COMPLETED
@@ -190,6 +195,9 @@ model Dispute {
   version      Int              @default(0)
   resolvedAt   DateTime?
   categoryId   Int?
+  /// Outcome from the initiator's perspective when status is RESOLVED/CLOSED.
+  /// Only disputes with outcome = LOST penalize the initiator's trust score.
+  outcome      DisputeOutcome?
   createdAt    DateTime         @default(now())
   updatedAt    DateTime         @updatedAt
 
@@ -202,6 +210,7 @@ model Dispute {
   @@index([initiator])
   @@index([status])
   @@index([categoryId])
+  @@index([outcome])
 }
 
 /// DeliveryManifest — submitted by the seller before shipping.
@@ -459,6 +468,26 @@ model WebhookSubscription {
 
   @@index([userId])
   @@index([isActive])
+}
+
+/// WebhookDeadLetter stores permanently failed webhook deliveries after all
+/// retry attempts have been exhausted. These records are retained for
+/// investigation and can be replayed via the admin API.
+model WebhookDeadLetter {
+  id              Int      @id @default(autoincrement())
+  webhookUrl      String   @db.VarChar(2048)
+  subscriptionId  Int?
+  secretHash      String?  @db.VarChar(64)
+  event           String   @db.VarChar(100)
+  tradeId         String   @db.VarChar(255)
+  status          String?  @db.VarChar(50)
+  payload         Json
+  lastError       String?  @db.Text
+  attempts        Int      @default(0)
+  deadLetteredAt  DateTime @default(now())
+
+  @@index([webhookUrl, deadLetteredAt])
+  @@index([tradeId])
 }
 
 /// InAppNotification represents an in-app notification for a user

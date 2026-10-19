@@ -11,6 +11,10 @@ function normalizeEnvInput(raw: Record<string, string | undefined>): Record<stri
     normalized.STELLAR_RPC_URL = normalized.SOROBAN_RPC_URL;
   }
 
+  if (!normalized.STELLAR_RPC_FALLBACK_URLS && normalized.SOROBAN_RPC_FALLBACK_URLS) {
+    normalized.STELLAR_RPC_FALLBACK_URLS = normalized.SOROBAN_RPC_FALLBACK_URLS;
+  }
+
   if (normalized.STELLAR_NETWORK) {
     normalized.STELLAR_NETWORK = normalized.STELLAR_NETWORK.toLowerCase();
   }
@@ -26,6 +30,14 @@ export const envSchema = z.object({
   JWT_ISSUER: z.string().default('amana'),
   JWT_AUDIENCE: z.string().default('amana-api'),
   REDIS_URL: z.string().default('redis://localhost:6379'),
+  // Redis observability configuration
+  REDIS_MEMORY_METRICS_ENABLED: z.string().default('true').transform((value: string) => value.toLowerCase() === 'true'),
+  REDIS_MEMORY_ALERT_THRESHOLD_PERCENT: z.coerce.number().int().min(1).max(100).default(80),
+  REDIS_MEMORY_CHECK_INTERVAL_MS: z.coerce.number().int().positive().default(30_000),
+  REDIS_MAXMEMORY_POLICY: z.enum(['noeviction', 'allkeys-lru', 'allkeys-lfu', 'allkeys-random', 'volatile-lru', 'volatile-lfu', 'volatile-random', 'volatile-ttl']).default('volatile-lru'),
+  REDIS_EVICTION_MONITOR_ENABLED: z.string().default('true').transform((value: string) => value.toLowerCase() === 'true'),
+  REDIS_HEALTH_CHECK_ENABLED: z.string().default('true').transform((value: string) => value.toLowerCase() === 'true'),
+  REDIS_HEALTH_CHECK_TIMEOUT_MS: z.coerce.number().int().positive().default(2_000),
   CORS_ORIGINS: z.string().default(''),
   DATABASE_URL: z.string(),
   SUPABASE_URL: z.string().optional(),
@@ -40,6 +52,12 @@ export const envSchema = z.object({
   STELLAR_NETWORK_PASSPHRASE: z.string().optional(),
   STELLAR_RPC_URL: z.string().optional(),
   SOROBAN_RPC_URL: z.string().optional(),
+  STELLAR_RPC_FALLBACK_URLS: z.string().optional(),
+  SOROBAN_RPC_FALLBACK_URLS: z.string().optional(),
+  STELLAR_HORIZON_FALLBACK_URLS: z.string().optional(),
+  STELLAR_HEALTH_TIMEOUT_MS: z.coerce.number().int().positive().default(5000),
+  STELLAR_HEALTH_CHECK_INTERVAL_MS: z.coerce.number().int().positive().default(30000),
+  STELLAR_TX_FAILURE_RATE_THRESHOLD: z.coerce.number().min(0).max(1).default(0.2),
   /** @deprecated Use AMANA_ESCROW_CONTRACT_ID */
   CONTRACT_ID: z.string().min(1).optional(),
   AMANA_ESCROW_CONTRACT_ID: z.string().min(1),
@@ -69,6 +87,8 @@ export const envSchema = z.object({
   // Evidence pin verification
   EVIDENCE_PIN_VERIFICATION_BATCH_SIZE: z.coerce.number().int().positive().default(50),
   EVIDENCE_PIN_VERIFICATION_INTERVAL_MS: z.coerce.number().int().positive().default(3_600_000),
+  EVIDENCE_PIN_VERIFICATION_MAX_RETRIES: z.coerce.number().int().nonnegative().default(3),
+  EVIDENCE_PIN_VERIFICATION_RETRY_BACKOFF_MS: z.coerce.number().int().positive().default(1_000),
 
   // Evidence / manifest retention
   EVIDENCE_MAX_BYTES: z.coerce.number().default(52428800),
@@ -109,6 +129,7 @@ export const envSchema = z.object({
   WEBHOOK_MAX_ATTEMPTS: z.coerce.number().int().positive().default(3),
   WEBHOOK_RETRY_BASE_MS: z.coerce.number().int().positive().default(1000),
   WEBHOOK_RETRY_MAX_MS: z.coerce.number().int().positive().default(30000),
+  WEBHOOK_CONSECUTIVE_FAILURE_THRESHOLD: z.coerce.number().int().positive().default(5),
   ADMIN_STATS_CACHE_TTL_SECONDS: z.coerce.number().int().positive().default(60),
   // API versioning
   LEGACY_API_SUNSET_DATE: z.string().default('Wed, 28 Oct 2026 00:00:00 GMT'),

@@ -1,5 +1,6 @@
 import { Request } from 'express';
-import { AppError, ErrorCode } from '../errors/errorCodes';
+import { ErrorCode } from '../errors/errorCodes';
+import { AppError } from '../errors/appError';
 import { ServiceErrorConverter, ServiceType } from '../errors/serviceErrorConverter';
 import { ACCESS_TOKEN_COOKIE, getCookie } from './authCookies';
 
@@ -154,7 +155,7 @@ export class AuthHelper {
     // Generic auth error (not network)
     return new AppError(
       ErrorCode.AUTH_ERROR,
-      'Authentication failed',
+      'Unauthorized',
       401,
       { errorType: AuthErrorType.INVALID_TOKEN, originalError: err.message }
     );

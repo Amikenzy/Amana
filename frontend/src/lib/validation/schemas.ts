@@ -17,7 +17,8 @@ export const TradeSchema = z.object({
     .refine(isValidStellarPublicKey, "Invalid Stellar public key"),
   amountCngn: z
     .string()
-    .regex(/^\d+(\.\d+)?$/, "Amount must be a valid positive number"),
+    .regex(/^\d+(\.\d+)?$/, "Amount must be a valid positive number")
+    .refine((value) => parseFloat(value) > 0, "Amount must be greater than zero"),
   buyerLossBps: z
     .number()
     .int("Must be a whole number")
