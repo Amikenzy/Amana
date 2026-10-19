@@ -140,15 +140,27 @@ export class ManifestService {
         const driverNameHash = sha256(input.driverName);
         const driverIdHash = sha256(input.driverIdNumber);
 
+        const [
+            encryptedDriverName,
+            encryptedDriverIdNumber,
+            encryptedVehicleRegistration,
+            encryptedRouteDescription,
+        ] = await Promise.all([
+            this.encryptionService.encrypt(input.driverName, input.tradeId),
+            this.encryptionService.encrypt(input.driverIdNumber, input.tradeId),
+            this.encryptionService.encrypt(input.vehicleRegistration, input.tradeId),
+            this.encryptionService.encrypt(input.routeDescription, input.tradeId),
+        ]);
+
         let manifest;
         try {
             manifest = await this.prisma.deliveryManifest.create({
                 data: {
                     tradeId: input.tradeId,
-                    driverName: this.encryptionService.encrypt(input.driverName, input.tradeId),
-                    driverIdNumber: this.encryptionService.encrypt(input.driverIdNumber, input.tradeId),
-                    vehicleRegistration: this.encryptionService.encrypt(input.vehicleRegistration, input.tradeId),
-                    routeDescription: this.encryptionService.encrypt(input.routeDescription, input.tradeId),
+                    driverName: encryptedDriverName,
+                    driverIdNumber: encryptedDriverIdNumber,
+                    vehicleRegistration: encryptedVehicleRegistration,
+                    routeDescription: encryptedRouteDescription,
                     expectedDeliveryAt: new Date(input.expectedDeliveryAt),
                     driverNameHash,
                     driverIdHash,
@@ -183,10 +195,17 @@ export class ManifestService {
         if (!manifest) throw new ManifestNotFoundError();
 
         const retentionExpired = isOutsideRetentionWindow(manifest.createdAt);
-        const decryptedDriverName = this.encryptionService.decrypt(manifest.driverName, tradeId);
-        const decryptedDriverIdNumber = this.encryptionService.decrypt(manifest.driverIdNumber, tradeId);
-        const decryptedVehicleRegistration = this.encryptionService.decrypt(manifest.vehicleRegistration, tradeId);
-        const decryptedRouteDescription = this.encryptionService.decrypt(manifest.routeDescription, tradeId);
+        const [
+            decryptedDriverName,
+            decryptedDriverIdNumber,
+            decryptedVehicleRegistration,
+            decryptedRouteDescription,
+        ] = await Promise.all([
+            this.encryptionService.decrypt(manifest.driverName, tradeId),
+            this.encryptionService.decrypt(manifest.driverIdNumber, tradeId),
+            this.encryptionService.decrypt(manifest.vehicleRegistration, tradeId),
+            this.encryptionService.decrypt(manifest.routeDescription, tradeId),
+        ]);
 
         if (isBuyer) {
             return {

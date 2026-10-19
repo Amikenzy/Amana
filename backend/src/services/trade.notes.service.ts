@@ -39,7 +39,7 @@ export class TradeNotesService {
       trade.sellerAddress.toLowerCase() === caller;
     if (!isParty) throw new TradeNoteAccessDeniedError();
 
-    const encrypted = this.encryptionService.encrypt(content, tradeId);
+    const encrypted = await this.encryptionService.encrypt(content, tradeId);
 
     return this.prisma.tradeNote.create({
       data: {
@@ -66,15 +66,17 @@ export class TradeNotesService {
       orderBy: { createdAt: "desc" },
     });
 
-    return notes.map((note) => ({
-      id: note.id,
-      tradeId: note.tradeId,
-      authorAddress: note.authorAddress,
-      content:
-        note.authorAddress === caller || isAdmin
-          ? this.encryptionService.decrypt(note.content, tradeId)
-          : null,
-      createdAt: note.createdAt,
-    }));
+    return Promise.all(
+      notes.map(async (note) => ({
+        id: note.id,
+        tradeId: note.tradeId,
+        authorAddress: note.authorAddress,
+        content:
+          note.authorAddress === caller || isAdmin
+            ? await this.encryptionService.decrypt(note.content, tradeId)
+            : null,
+        createdAt: note.createdAt,
+      })),
+    );
   }
 }
