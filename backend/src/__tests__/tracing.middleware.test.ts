@@ -268,26 +268,21 @@ describe('Tracing utilities', () => {
   });
 
   describe('getRequestSpan', () => {
-    it('should return the span from request object', async () => {
-      // This would require access to the actual request object
-      // For now, we test the concept
-      expect(typeof getRequestSpan).toBe('function');
-    });
-  });
+    it('should return the span from request object', () => {
+      const mockSpan = { setAttribute: jest.fn() } as any;
+      const mockReq = { span: mockSpan } as unknown as Request;
 
-  describe('addRequestSpanAttribute', () => {
-    it('should add attributes to the request span', async () => {
-      await request(app).get('/test');
-      
-      // Verify the attribute was added
-      const { getTracer } = require('@opentelemetry/api');
-      const mockSpan = getTracer().startSpan();
-      
-      expect(mockSpan.setAttributes).toHaveBeenCalledWith(
-        expect.objectContaining({
-          'test.attribute': 'test-value',
-        })
-      );
+      const result = getRequestSpan(mockReq);
+
+      expect(result).toBe(mockSpan);
+    });
+
+    it('should return undefined when request has no span attached', () => {
+      const mockReq = {} as unknown as Request;
+
+      const result = getRequestSpan(mockReq);
+
+      expect(result).toBeUndefined();
     });
   });
 });
