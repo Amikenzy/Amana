@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import * as SecureStore from 'expo-secure-store';
+import { useTradeStore } from './tradeStore';
 
 interface AuthState {
   token: string | null;
@@ -43,6 +44,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       SecureStore.deleteItemAsync('amana_token'),
       SecureStore.deleteItemAsync('amana_wallet_address'),
     ]);
+    useTradeStore.getState().resetStore();
     set({ token: null, walletAddress: null });
   },
 }));

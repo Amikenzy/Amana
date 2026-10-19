@@ -31,6 +31,7 @@ const createTradePayloadSchema = z.object({
   commodity: z.string().optional(),
   quantity: z.string().optional(),
   unit: z.string().optional(),
+  deliveryDays: z.number().int().positive().optional(),
 }).refine((value) => (value.buyerLossBps ?? 5000) + (value.sellerLossBps ?? 5000) === 10000, {
   message: 'Loss ratios must total 100%',
 });

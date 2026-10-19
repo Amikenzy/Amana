@@ -22,12 +22,14 @@ interface TradeState {
     commodity?: string;
     quantity?: string;
     unit?: string;
+    deliveryDays?: number;
   }) => Promise<{ tradeId: string; unsignedXdr: string } | null>;
   confirmDelivery: (tradeId: string) => Promise<void>;
   releaseFunds: (tradeId: string, onPairingUri: (uri: string) => void) => Promise<void>;
   deposit: (tradeId: string, onPairingUri: (uri: string) => void) => Promise<void>;
   initiateDispute: (tradeId: string, reason: string) => Promise<void>;
   clearError: () => void;
+  resetStore: () => void;
 }
 
 async function signAndSubmitTradeTransaction(
@@ -153,4 +155,14 @@ export const useTradeStore = create<TradeState>((set, get) => ({
   },
 
   clearError: () => set({ error: null }),
+
+  resetStore: () =>
+    set({
+      trades: [],
+      total: 0,
+      currentTrade: null,
+      lastTransactionSubmission: null,
+      isLoading: false,
+      error: null,
+    }),
 }));
