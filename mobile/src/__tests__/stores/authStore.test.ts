@@ -1,3 +1,4 @@
+import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { useAuthStore } from '../../stores/authStore';
 import { useTradeStore } from '../../stores/tradeStore';
 
@@ -13,7 +14,9 @@ jest.mock('../../stores/tradeStore', () => ({
   },
 }));
 
-const SecureStore = jest.requireMock('expo-secure-store');
+const SecureStore = jest.mocked(
+  jest.requireMock<typeof import('expo-secure-store')>('expo-secure-store'),
+);
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -38,6 +41,19 @@ describe('authStore', () => {
     expect(useAuthStore.getState().token).toBe('tok_xyz');
   });
 
+  it('persists and restores the wallet address alongside the token', async () => {
+    SecureStore.getItemAsync
+      .mockResolvedValueOnce('tok_xyz')
+      .mockResolvedValueOnce('GABC');
+
+    await useAuthStore.getState().setWalletAddress('GABC');
+    const result = await useAuthStore.getState().getToken();
+
+    expect(SecureStore.setItemAsync).toHaveBeenCalledWith('amana_wallet_address', 'GABC');
+    expect(result).toBe('tok_xyz');
+    expect(useAuthStore.getState().walletAddress).toBe('GABC');
+  });
+
   it('getToken returns null when SecureStore throws', async () => {
     SecureStore.getItemAsync.mockRejectedValue(new Error('read error'));
 
@@ -52,6 +68,7 @@ describe('authStore', () => {
     await useAuthStore.getState().clearAuth();
 
     expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith('amana_token');
+    expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith('amana_wallet_address');
     expect(useAuthStore.getState().token).toBeNull();
     expect(useAuthStore.getState().walletAddress).toBeNull();
   });

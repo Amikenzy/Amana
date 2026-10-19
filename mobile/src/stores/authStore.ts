@@ -7,7 +7,7 @@ interface AuthState {
   walletAddress: string | null;
   isLoading: boolean;
   setToken: (token: string) => Promise<void>;
-  setWalletAddress: (address: string) => void;
+  setWalletAddress: (address: string) => Promise<void>;
   getToken: () => Promise<string | null>;
   clearAuth: () => Promise<void>;
 }
@@ -22,14 +22,16 @@ export const useAuthStore = create<AuthState>((set) => ({
     set({ token });
   },
 
-  setWalletAddress: (address: string) => {
+  setWalletAddress: async (address: string) => {
+    await SecureStore.setItemAsync('amana_wallet_address', address);
     set({ walletAddress: address });
   },
 
   getToken: async () => {
     try {
       const token = await SecureStore.getItemAsync('amana_token');
-      set({ token });
+      const walletAddress = await SecureStore.getItemAsync('amana_wallet_address');
+      set({ token, walletAddress });
       return token;
     } catch (error) {
       console.error('Failed to retrieve token:', error);
@@ -38,7 +40,10 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   clearAuth: async () => {
-    await SecureStore.deleteItemAsync('amana_token');
+    await Promise.all([
+      SecureStore.deleteItemAsync('amana_token'),
+      SecureStore.deleteItemAsync('amana_wallet_address'),
+    ]);
     useTradeStore.getState().resetStore();
     set({ token: null, walletAddress: null });
   },

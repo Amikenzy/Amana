@@ -14,6 +14,7 @@ import {
   tradeIdParamSchema,
   listTradesQuerySchema,
   initiateDisputeSchema,
+  submitSignedTransactionSchema,
   rotateKeySchema,
 } from "../schemas/trade.schemas";
 import { RATE_LIMIT_CONFIG } from "../config/rateLimit";
@@ -50,6 +51,16 @@ export function createTradeRouter(prisma: PrismaClient = defaultPrisma) {
     idempotencyMiddleware,
     validateRequest({ params: tradeIdParamSchema }),
     tradeController.buildDepositTx
+  );
+
+  router.post(
+    "/:id/submit",
+    authMiddleware,
+    validateRequest({
+      params: tradeIdParamSchema,
+      body: submitSignedTransactionSchema,
+    }),
+    tradeController.submitSignedTransaction,
   );
 
   router.post(

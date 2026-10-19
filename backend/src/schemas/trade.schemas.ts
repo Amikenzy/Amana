@@ -95,6 +95,10 @@ export const tradeIdParamSchema = z.object({
   id: strictTradeId,
 });
 
+export const submitSignedTransactionSchema = z.object({
+  signedXdr: z.string().min(1).max(100_000),
+});
+
 export const strictTradeIdSchema = strictTradeId;
 
 export const listTradesQuerySchema = z.object({
