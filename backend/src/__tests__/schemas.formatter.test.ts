@@ -104,6 +104,27 @@ describe("Trade Schemas - Formatters & Validators", () => {
       });
     });
 
+    describe("Delivery Window (#1639)", () => {
+      const base = {
+        sellerAddress: "GDQLTM4CD55FGYLT4DQX2UR7F2EPXW37T4ABIARI4XKOWLSUBK4FSVN",
+        amountUsdc: "100",
+      };
+
+      it("keeps deliveryDays instead of stripping it", () => {
+        const result = createTradeSchema.safeParse({ ...base, deliveryDays: 7 });
+        expect(result.success).toBe(true);
+        if (result.success) expect(result.data.deliveryDays).toBe(7);
+      });
+
+      it("treats deliveryDays as optional", () => {
+        expect(createTradeSchema.safeParse(base).success).toBe(true);
+      });
+
+      it.each([0, -1, 366, 2.5])("rejects deliveryDays=%p", (deliveryDays) => {
+        expect(createTradeSchema.safeParse({ ...base, deliveryDays }).success).toBe(false);
+      });
+    });
+
     describe("Stellar Public Key Validation", () => {
       it("should accept valid seller address", () => {
         const result = createTradeSchema.safeParse({
