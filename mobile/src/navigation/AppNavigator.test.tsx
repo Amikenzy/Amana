@@ -7,7 +7,7 @@ import * as useDeepLinkHook from '../hooks/useDeepLink';
 const mockNavigationRef = { isReady: jest.fn(() => true), navigate: jest.fn() };
 
 jest.mock('@react-navigation/native', () => {
-  const { useEffect } = require('react');
+  const { useEffect } = jest.requireActual<typeof import('react')>('react');
   return {
     NavigationContainer: ({ children, onReady }: any) => {
       useEffect(() => onReady?.(), []);

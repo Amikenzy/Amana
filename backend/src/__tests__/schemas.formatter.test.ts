@@ -15,7 +15,6 @@ import {
   listTradesQuerySchema,
   initiateDisputeSchema,
 } from "../schemas/trade.schemas";
-import { z } from "zod";
 
 describe("Trade Schemas - Formatters & Validators", () => {
   describe("createTradeSchema", () => {
@@ -106,7 +105,7 @@ describe("Trade Schemas - Formatters & Validators", () => {
 
     describe("Delivery Window (#1639)", () => {
       const base = {
-        sellerAddress: "GDQLTM4CD55FGYLT4DQX2UR7F2EPXW37T4ABIARI4XKOWLSUBK4FSVN",
+        sellerAddress: "GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF",
         amountUsdc: "100",
       };
 
