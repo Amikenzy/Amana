@@ -416,7 +416,7 @@ export default function CreateTradeScreen({ navigation }: Props) {
             data={data}
             onBack={() => setStep(1)}
             onSubmit={handleSubmit}
-            onSaveDraft={() => saveDraft()}
+            onSaveDraft={() => { void saveDraft().catch((err: unknown) => Alert.alert('Error', (err as Error)?.message ?? 'Failed to save draft')); }}
             submitting={submitting}
           />
         )}
